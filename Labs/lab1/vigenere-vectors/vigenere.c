@@ -54,19 +54,36 @@ int main(int argc, char *argv[]) {
 	/* The first argument, 'argv[1]' is a string, not a number.
 	 * To use it as our shift value, we must first convert it to an integer. */
 
-	int shift = atoi(argv[1]); /* atoi means "ASCII to integer" */
-	if (shift > 255 || shift < 0) {
-		printf("Value of shift must be between 0-255.\n");
-		exit(1);
-	}
+	// int shift = atoi(argv[1]); /* atoi means "ASCII to integer" */
+	// if (shift > 255 || shift < 0) {
+	// 	printf("Value of shift must be between 0-255.\n");
+	// 	exit(1);
+	// }
 
 	/* Note: vigenere instead takes a path to a key file rather than a shift
 	 * value.  See the lab manual for instructions on how to read a file into a
 	 * character array.
 	 */
 
+	char *keyFilePath = argv[1]; /* key file path */
+	char keyData[128]; /* Array for holding key bytes, up to 128 */
+	unsigned int keyLength = 0;  /* Length of keyData */
+	char symbolData; /* temp var to hold individual char data */
+
 	char *input = argv[2]; /* input file name */
 	char *output = argv[3]; /* output file name */
+
+
+	FILE *KEYINPUT;
+	if((KEYINPUT = fopen(keyFilePath, "r")) == NULL){
+		printf("Problem opening key file path '%s'; errno: %d\n", keyFilePath, errno);
+		return 1;
+	}
+
+	while(keyLength < (128) && (data = fgetc(KEYINPUT)) != EOF ){
+		keyData[length] = symbolData;
+		keyLength++;
+	}
 
 	/* open the input or quit on error */
 	FILE *INPUT;
@@ -86,6 +103,7 @@ int main(int argc, char *argv[]) {
 	char cipher; /* we will encode each output byte in 'cipher' */
 
 	if (MODE != ENCODE) {
+		
 		shift = 256 - shift; /* mode is DECODE, so "unshift" the characters */
 	}
 	
