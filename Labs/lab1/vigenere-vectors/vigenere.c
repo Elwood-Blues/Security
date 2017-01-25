@@ -73,17 +73,19 @@ int main(int argc, char *argv[]) {
 	char *input = argv[2]; /* input file name */
 	char *output = argv[3]; /* output file name */
 
-
-	FILE *KEYINPUT;
+	/* Try to open Key file path to read in data or quit with error */
+	FILE *KEYINPUT; 	/*Pointer to the key file being used */
 	if((KEYINPUT = fopen(keyFilePath, "r")) == NULL){
-		printf("Problem opening key file path '%s'; errno: %d\n", keyFilePath, errno);
+		printf("Problem opening key file '%s'; errno: %d\n", keyFilePath, errno);
 		return 1;
 	}
 
-	while(keyLength < (128) && (data = fgetc(KEYINPUT)) != EOF ){
-		keyData[length] = symbolData;
-		keyLength++;
+	while(keyLength < (128) && (symbolData = fgetc(KEYINPUT)) != EOF ){	/* read in keyFile info until 128 bytes */
+		keyData[keyLength] = symbolData;								/* or until the EOF is found			*/
+		keyLength++;												/* increment the keyLength variable		*/
 	}
+
+	fclose(KEYINPUT);												/* Close Key file path; done reading in data */
 
 	/* open the input or quit on error */
 	FILE *INPUT;
@@ -101,44 +103,74 @@ int main(int argc, char *argv[]) {
 
 	int symbol; /* we will read each input byte into 'symbol' */
 	char cipher; /* we will encode each output byte in 'cipher' */
+	char plainText; /*used to store each output byte during decode operation */
+	int curPosInKey = 0;  /* variable used to track position within keyData Array */
 
 	if (MODE != ENCODE) {
 		
-		shift = 256 - shift; /* mode is DECODE, so "unshift" the characters */
-	}
-	
-	if (DEBUG) {
-		printf("The shift value is %d\n", shift);
-	}
+		/* Vigenere Shift reversal/decode
+		*  1. take the int value of the input 'symbol'
+		*  2. subtract the int value of the 'key' from the 'symbol'
+		*  3. then perform modulo arithmetic using 256 to wrap numbers back around if necessary
+		*  4. cast the new value to char and store
+		*/
+		while((symbol = fgetc(INPUT)) != EOF){
+			curPosInKey = curPosInKey % keyLength;
+			plainText = (char)( (symbol - keyData[curPosInKey]) % 256);
+			curPosInKey++;
 
-	/***************************
-	 * OK, LET'S GET ENCODING! *
-	 ***************************/
+			fprintf(OUTPUT, "%c", plainText);
 
-	/* read individual characters from INPUT until we hit the EOF */
-	while ((symbol = fgetc(INPUT)) != EOF) {
-
-		/* Do the Caesar Shift:
-		 * 1. take the integer value of 'symbol'
-		 * 2. add the shift value
-		 * 4. cast to char and store into 'cipher' 
-		 */
-
-		cipher = (char)(symbol + shift); /* char is 8-bits so wraps automatically */
-
-		if (DEBUG) {
-			/* leaving this code turned on will make your program very slow! */
-			printf("symbol is: %d == %02x became %02x\n", symbol, symbol, cipher);
 		}
 
-		/* write the number 'cipher' as a character to OUTPUT */
-		fprintf(OUTPUT, "%c", cipher);
+		// Caesar Shift code: 
+		//shift = 256 - shift; /* mode is DECODE, so "unshift" the characters */
 
 	}
+	
+	// if (DEBUG) {
+	// 	printf("The shift value is %d\n", shift);
+	// }
+	if (MODE == ENCODE){
+		/***************************
+		 * OK, LET'S GET ENCODING! *
+		 ***************************/
 
-	fclose(INPUT);
-	fclose(OUTPUT);
+		/* read individual characters from INPUT until we hit the EOF */
+		while ((symbol = fgetc(INPUT)) != EOF) {
 
+			/* Do the Vigenere shift:
+			*  1. take the integer value of the input 'symbol'
+			*  2. add the integer value of the 'key' to the 'symbol'
+			*  3. then perform modulo arithmetic using 256 to wrap numbers back around if necessary
+			*  4. cast the new value to char and store into 'cipher' for output
+			*/
+			curPosInKey = curPosInKey % keyLength;
+			cipher = (char)( (symbol + keyData[curPosInKey]) % 256 );
+			curPosInKey++;
+
+
+			/* Do the Caesar Shift:
+			 * 1. take the integer value of 'symbol'
+			 * 2. add the shift value
+			 * 4. cast to char and store into 'cipher' 
+			 */
+
+			//cipher = (char)(symbol + shift); /* char is 8-bits so wraps automatically */
+
+			if (DEBUG) {
+				/* leaving this code turned on will make your program very slow! */
+				printf("symbol is: %d == %02x became %02x\n", symbol, symbol, cipher);
+			}
+
+			/* write the number 'cipher' as a character to OUTPUT */
+			fprintf(OUTPUT, "%c", cipher);
+
+		}
+
+		fclose(INPUT);
+		fclose(OUTPUT);
+	}
 	return 0;
 
 }
