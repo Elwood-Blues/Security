@@ -66,9 +66,8 @@ int main(int argc, char *argv[]) {
 	 */
 
 	char *keyFilePath = argv[1]; /* key file path */
-	char keyData[128]; /* Array for holding key bytes, up to 128 */
+	int keyData[128]; /* Array for holding key bytes, up to 128 */
 	unsigned int keyLength = 0;  /* Length of keyData */
-	char symbolData; /* temp var to hold individual char data */
 
 	char *input = argv[2]; /* input file name */
 	char *output = argv[3]; /* output file name */
@@ -79,13 +78,6 @@ int main(int argc, char *argv[]) {
 		printf("Problem opening key file '%s'; errno: %d\n", keyFilePath, errno);
 		return 1;
 	}
-
-	while(keyLength < (128) && (symbolData = fgetc(KEYINPUT)) != EOF ){	/* read in keyFile info until 128 bytes */
-		keyData[keyLength] = symbolData;								/* or until the EOF is found			*/
-		keyLength++;												/* increment the keyLength variable		*/
-	}
-
-	fclose(KEYINPUT);												/* Close Key file path; done reading in data */
 
 	/* open the input or quit on error */
 	FILE *INPUT;
@@ -106,10 +98,22 @@ int main(int argc, char *argv[]) {
 	char plainText; /*used to store each output byte during decode operation */
 	int curPosInKey = 0;  /* variable used to track position within keyData Array */
 
+	/* read in keyFile info until 128 bytes 
+	* or until the EOF is found	then
+	* increment the keyLength variable		*/		
+	while(keyLength < (128) && (symbol = fgetc(KEYINPUT)) != EOF ){	
+		keyData[keyLength] = symbol;								
+		keyLength++;												
+	}
+
 	if (MODE != ENCODE) {
-		
-		/* Vigenere Shift reversal/decode
-		*  1. take the int value of the input 'symbol'
+		/*****CAESER SHIFT DECODE SECTION*****/
+			/* mode is DECODE, so "unshift" the characters */
+			/* shift = 256 - shift; */
+		/*****END CAESER SHIFT SECTION**/
+
+		/****VIGENERE DECODE SECTON****/
+		/*  1. take the int value of the input 'symbol'
 		*  2. subtract the int value of the 'key' from the 'symbol'
 		*  3. then perform modulo arithmetic using 256 to wrap numbers back around if necessary
 		*  4. cast the new value to char and store
@@ -122,9 +126,6 @@ int main(int argc, char *argv[]) {
 			fprintf(OUTPUT, "%c", plainText);
 
 		}
-
-		// Caesar Shift code: 
-		//shift = 256 - shift; /* mode is DECODE, so "unshift" the characters */
 
 	}
 	
@@ -168,6 +169,7 @@ int main(int argc, char *argv[]) {
 
 		}
 
+		fclose(KEYINPUT);
 		fclose(INPUT);
 		fclose(OUTPUT);
 	}
