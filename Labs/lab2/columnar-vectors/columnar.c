@@ -43,7 +43,32 @@ int transpose_buffer(char *out, char *in, unsigned int dim) {
 	 */
 
 	/* your elegant code goes here */
-
+	unsigned int col_num = 0;
+	unsigned int row_num = 0;
+	unsigned int index = 0;
+	const unsigned int NUM_COLS = dim;
+	const unsigned int NUM_ROWS = dim;
+	char temp_buffer[dim][dim];
+	/* Transfer input buffer contents to temp_buffer(2D array)
+	* for simpler transposition indexing */
+	for (int y = 0; y < NUM_ROWS; ++y)
+	{
+		for (int x = 0; x < NUM_COLS; ++x)
+		{
+			temp_buffer[x][y] = in[index];
+			index++;
+		}
+	}
+	/* Transpose data in temp_buffer and write to 'out' buffer */
+	index = 0;
+	for (int x = 0; x < NUM_COLS; ++x)
+	{
+		for (int y = 0; y < NUM_ROWS; ++y)
+		{
+			out[index] = temp_buffer[x][y];
+			index++;
+		}
+	}
 	return 0;
 
 }
