@@ -27,7 +27,10 @@ int print_buffer(char *buf, unsigned int bytes) {
 	 * bytes as specified */
 
 	/* insert code here */
-
+	for (int i = 0; i < bytes; ++i)
+	{
+		printf("%c", buf[i]);
+	}
 	return bytes;
 
 }
@@ -57,13 +60,20 @@ int dump_buffer(char *buffer, unsigned int bufsize,
 	 */
 	
 	/* open the output or quit on error */
-
+	FILE *OUTPUT;
+	if((OUTPUT = fopen(output, "w+")) ==NULL){
+		printf("Problem opening output file '%s'; errno: %d\n", output, errno);
+		return 1;
+	}
 	/* print 'bytes' bytes from buffer to output file one char at a time */
-
+	for (int i = 0; i < bytes; ++i)
+	{
+		fprintf(OUTPUT, "%c", buffer[i]);
+	}
 	/* optional: wipe buffer using memset */
-
+	memset(buffer, '\0', bufsize);
 	/* close output file */
-
+	fclose(OUTPUT);
 	return bytes;
 
 }
@@ -81,11 +91,16 @@ int pad_buffer(char *buffer, unsigned int bufsize, unsigned int rbuf_index) {
 	 */
 
 	int padded = 0;
-
 	/* code goes here */
-
+	buffer[rbuf_index] = 'X';
+	rbuf_index++;
+	padded++;
+	while(rbuf_index < bufsize){
+		buffer[rbuf_index] = 'Y';
+		rbuf_index++;
+		padded++;
+	}
 	return padded;
-
 }
 	
 int unpad_buffer(char *buffer, unsigned int bufsize) {
@@ -96,9 +111,19 @@ int unpad_buffer(char *buffer, unsigned int bufsize) {
 	 */
 
 	int unpadded = 0;
-
+	unsigned int rbuf_index = bufsize -1;
 	/* code goes here */
-
+	while(buffer[rbuf_index] == 'Y'){
+		buffer[rbuf_index] = '\0';
+		unpadded++;
+		rbuf_index--;
+	}
+	if (buffer[rbuf_index] == 'X')
+	{
+		buffer[rbuf_index] = '\0';
+		unpadded++;
+		rbuf_index--;
+	}
 	return unpadded;
 
 }
