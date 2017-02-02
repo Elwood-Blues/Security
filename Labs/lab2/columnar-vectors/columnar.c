@@ -236,27 +236,43 @@ int main(int argc, char *argv[]) {
 	 *  do stuff here *
 	 ******************/
 	i = 0;
-	while(bytesleft > 0){
-		if((symbol = fgetc(INPUT)) != EOF){
-			if (((rbuf_index % bufsize) == 0) && (read_buf[rbuf_index % bufsize] != '\0') && (i !=0) )
-			{
-				/* read buffer is full, and its not the first iteration,
-				 * transpose and call dump buffer to write the block */
-				transpose_buffer(write_buf, read_buf, bufsize);
-				dump_buffer(read_buf, bufsize, bufsize, output);
-			}
-			read_buf[rbuf_index % bufsize] = symbol;
-			rbuf_index++;
-			bytesleft--;
-			i++;
-		}
-		else{
-			//reached the EOF signal, pad buffer, then transpose and finally dump buffer
-			pad_buffer(read_buf, bufsize, (rbuf_index % bufsize));
+	while((symbol = fgetc(INPUT)) !=EOF){
+		if (((rbuf_index % bufsize) == 0) && (read_buf[rbuf_index % bufsize] != '\0') && (i !=0) )
+		{
+			/* read buffer is full, and its not the first iteration,
+			* transpose and call dump buffer to write the block */
 			transpose_buffer(write_buf, read_buf, bufsize);
-			dump_buffer(read_buf, bufsize, (rbuf_index % bufsize), output);
+			dump_buffer(read_buf, bufsize, bufsize, output);
 		}
+		read_buf[rbuf_index & bufsize] = symbol;
+		rbuf_index++;
+		bytesleft--;
+		i++;
+
 	}
+
+	/*reached input EOF signal, pad/unpad buffer, then transpose and finally dump buffer*/
+	unsigned int tempLoc = 0;
+	if (MODE == ENCODE)
+	{
+		//bytesleft indicates bytes add by padding
+		tempLoc = rbuf_index % bufsize;
+		bytesleft = pad_buffer(read_buf, bufsize, tempLoc);
+		transpose_buffer(write_buf, read_buf, bufsize);
+		/*buffer should be completely full after adding padding, 
+		 * so bytes & bufsize for dump_buffer call should be equal */
+		dump_buffer(read_buf, bufsize, bufsize, output);
+	}
+	else{ //DECODE SECTION
+		//bytesleft indicates bytes removed by unpadding
+		transpose_buffer(write_buf, read_buf, bufsize);
+		bytesleft = unpad_buffer(read_buf, bufsize);
+		/* tempLoc is equal to the amount of bytes removed by padding,
+		* which needs to be passed to dump buffer to track amount of bytes to write to output */
+		tempLoc = bufsize - bytesleft;
+		dump_buffer(read_buf, bufsize, tempLoc, output); 
+	}
+
 
 	fclose(INPUT);
 
