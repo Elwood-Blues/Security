@@ -229,13 +229,13 @@ int main(int argc, char *argv[]) {
 	 *  do stuff here *
 	 ******************/
 	i = 0;
-	while((bytesleft > 0){
+	while(bytesleft > 0){
 		if((symbol = fgetc(INPUT)) != EOF){
 			if (((rbuf_index % bufsize) == 0) && i != 0)
 			{
 				/* read buffer if full, transpose and call dump buffer to write the block */
 				transpose_buffer(write_buf, read_buf, bufsize);
-				dump_buffer(read_buf, bufsize, bufsize, write_buf);
+				dump_buffer(read_buf, bufsize, bufsize, output);
 			}
 			read_buf[rbuf_index % bufsize] = symbol;
 			rbuf_index++;
@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
 			//reached the EOF signal, pad buffer, then transpose and finally dump buffer
 			pad_buffer(read_buf, bufsize, (rbuf_index % bufsize));
 			transpose_buffer(write_buf, read_buf, bufsize);
-			dump_buffer(read_buf, bufsize, (rbuf_index % bufsize), write_buf);
+			dump_buffer(read_buf, bufsize, (rbuf_index % bufsize), output);
 		}
 	}
 
