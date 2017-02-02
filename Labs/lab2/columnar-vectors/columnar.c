@@ -116,15 +116,22 @@ int pad_buffer(char *buffer, unsigned int bufsize, unsigned int rbuf_index) {
 	 */
 
 	int padded = 0;
-	/* code goes here */
-	buffer[rbuf_index] = 'X';
-	rbuf_index++;
-	padded++;
-	while(rbuf_index < bufsize){
-		buffer[rbuf_index] = 'Y';
-		rbuf_index++;
-		padded++;
-	}
+	/* first case, buffer isn't full fill remainder with single X followed by Y's */
+    if(buffer[rbuf_index] == '\0'){
+        buffer[rbuf_index] = 'X';
+        rbuf_index++;
+        padded++;
+
+        while(rbuf_index < bufsize){
+            buffer[rbuf_index] = 'Y';
+            rbuf_index++;
+            padded++;
+        }
+    } else{
+        /* buffer is full i.e. buffer[rbuf_index] != null byte */
+        printf("CODE SHOULD NOT REACH THIS POINT IN PAD_BUFFER!!\n\n");
+    }
+
 	return padded;
 }
 	
@@ -181,7 +188,7 @@ int main(int argc, char *argv[]) {
 
 	unsigned int rbuf_count = 0;
 	unsigned int bufsize = dim * dim;
-	char read_buf[bufsize]; /* buffer for reading and padding */
+	char read_buf[bufsize];/* buffer for reading and padding */
 	char write_buf[bufsize]; /* buffer for transposition */
 
 	/* open the input or quit on error. */
@@ -231,9 +238,10 @@ int main(int argc, char *argv[]) {
 	i = 0;
 	while(bytesleft > 0){
 		if((symbol = fgetc(INPUT)) != EOF){
-			if (((rbuf_index % bufsize) == 0) && i != 0)
+			if (((rbuf_index % bufsize) == 0) && (read_buf[rbuf_index % bufsize] != '\0') && (i !=0) )
 			{
-				/* read buffer if full, transpose and call dump buffer to write the block */
+				/* read buffer is full, and its not the first iteration,
+				 * transpose and call dump buffer to write the block */
 				transpose_buffer(write_buf, read_buf, bufsize);
 				dump_buffer(read_buf, bufsize, bufsize, output);
 			}
