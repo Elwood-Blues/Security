@@ -59,7 +59,7 @@ int transpose_buffer(char *out, char *in, unsigned int dim) {
 			index++;
 		}
 	}
-	/* Transpose data in temp_buffer and write to 'out' buffer */
+	 // Transpose data in temp_buffer and write to 'out' buffer 
 	index = 0;
 	for (int x = 0; x < NUM_COLS; ++x)
 	{
@@ -86,7 +86,7 @@ int dump_buffer(char *buffer, unsigned int bufsize,
 	
 	/* open the output or quit on error */
 	FILE *OUTPUT;
-	if((OUTPUT = fopen(output, "w+")) ==NULL){
+	if((OUTPUT = fopen(output, "ab+")) ==NULL){
 		printf("Problem opening output file '%s'; errno: %d\n", output, errno);
 		return 1;
 	}
@@ -116,22 +116,19 @@ int pad_buffer(char *buffer, unsigned int bufsize, unsigned int rbuf_index) {
 	 */
 
 	int padded = 0;
+	unsigned int temp = rbuf_index;
 	/* first case, buffer isn't full fill remainder with single X followed by Y's */
-    if(buffer[rbuf_index] == '\0'){
-        buffer[rbuf_index] = 'X';
-        rbuf_index++;
+        buffer[rbuf_index + temp] = 'X';
+        // rbuf_index++;
+        temp++;
         padded++;
 
         while(rbuf_index < bufsize){
-            buffer[rbuf_index] = 'Y';
-            rbuf_index++;
+            buffer[rbuf_index + temp] = 'Y';
+            // rbuf_index++;
+            temp++;
             padded++;
         }
-    } else{
-        /* buffer is full i.e. buffer[rbuf_index] != null byte */
-        printf("CODE SHOULD NOT REACH THIS POINT IN PAD_BUFFER!!\n\n");
-    }
-
 	return padded;
 }
 	
@@ -236,15 +233,23 @@ int main(int argc, char *argv[]) {
 	 *  do stuff here *
 	 ******************/
 	i = 0;
-	while((symbol = fgetc(INPUT)) !=EOF){
-		if (((rbuf_index % bufsize) == 0) && (read_buf[rbuf_index % bufsize] != '\0') && (i !=0) )
+	while((symbol = (int)fgetc(INPUT)) !=EOF){
+		/* 	The following 'if' checks that we are past the first iteration
+		*	and then if the rbuff_index % bufsize is zero meaning full buffer
+		*	and that if read_buf[rbuf_index % bufsize] != 'null' byte('\0') 
+		*	which indicates the buffer hasn't been dumped yet
+		*	If these conditions are met we transpose, then dump the buffer
+		*	before continueing to read input symbols*/
+		if (((rbuf_index % bufsize) == 0) //Meaning we are at the beginning of our buffer
+			&& (read_buf[rbuf_index % bufsize] != '\0')//Meaning the location zero isn't null
+			 && (i !=0) )//indicates we're past the very first iteration
 		{
-			/* read buffer is full, and its not the first iteration,
-			* transpose and call dump buffer to write the block */
+			/*	If here it means we have a full buffer that needs to be transposed
+			*	and dumped before the bytes get overwritten */
 			transpose_buffer(write_buf, read_buf, bufsize);
 			dump_buffer(read_buf, bufsize, bufsize, output);
 		}
-		read_buf[rbuf_index & bufsize] = symbol;
+		read_buf[rbuf_index % bufsize] = symbol;
 		rbuf_index++;
 		bytesleft--;
 		i++;
@@ -255,7 +260,7 @@ int main(int argc, char *argv[]) {
 	unsigned int tempLoc = 0;
 	if (MODE == ENCODE)
 	{
-		//bytesleft indicates bytes add by padding
+		//bytesleft indicates bytes added by padding
 		tempLoc = rbuf_index % bufsize;
 		bytesleft = pad_buffer(read_buf, bufsize, tempLoc);
 		transpose_buffer(write_buf, read_buf, bufsize);
@@ -279,5 +284,3 @@ int main(int argc, char *argv[]) {
 	return 0;
 
 }
-
-
