@@ -31,6 +31,7 @@ int print_buffer(char *buf, unsigned int bytes) {
 	{
 		printf("%c", buf[i]);
 	}
+
 	return bytes;
 
 }
@@ -44,12 +45,13 @@ int transpose_buffer(char *out, char *in, unsigned int dim) {
 
 	/* your elegant code goes here */
 	unsigned int size = dim * dim;
-	int position = 0;
+	unsigned int position = 0;
 	for (int i = 0; i < size; ++i)
 	{
 		position = (i % dim) * dim + (i / dim);
 		out[position] = in[i];
 	}
+
 	return 0;
 
 }
@@ -67,8 +69,8 @@ int dump_buffer(char *buffer, unsigned int bufsize,
 	
 	/* open the output or quit on error */
 	FILE *OUTPUT;
-	if((OUTPUT = fopen(output, "a")) ==NULL){
-		printf("Problem opening output file '%s'; errno: %d\n", output, errno);
+   	if ((OUTPUT = fopen(output, "ab")) == NULL) {
+		printf("Problem truncating output file '%s'; errno: %d\n", output, errno);
 		return 1;
 	}
 	/* print 'bytes' bytes from buffer to output file one char at a time */
@@ -77,9 +79,10 @@ int dump_buffer(char *buffer, unsigned int bufsize,
 		fprintf(OUTPUT, "%c", buffer[i]);
 	}
 	/* optional: wipe buffer using memset */
-	memset(buffer, '\0', bufsize);
+	memset(buffer, 0, bufsize);
 	/* close output file */
 	fclose(OUTPUT);
+
 	return bytes;
 
 }
@@ -97,18 +100,21 @@ int pad_buffer(char *buffer, unsigned int bufsize, unsigned int rbuf_index) {
 	 */
 
 	int padded = 0;
+
 	/* code goes here */
-	if(rbuf_index < bufsize){
-		buffer[rbuf_index] = 'X';
-		rbuf_index++;
+	buffer[rbuf_index] = 'X';
+	rbuf_index++;
+	padded++;
+
+	for (int i = rbuf_index; i < bufsize; ++i)
+	{
+		buffer[i] = 'Y';
 		padded++;
-		while(rbuf_index < bufsize){
-			buffer[rbuf_index] = 'Y';
-			rbuf_index++;
-			padded++;
-		}
 	}
+
+
 	return padded;
+
 }
 	
 int unpad_buffer(char *buffer, unsigned int bufsize) {
@@ -119,15 +125,17 @@ int unpad_buffer(char *buffer, unsigned int bufsize) {
 	 */
 
 	int unpadded = 0;
-	unsigned int rbuf_index = bufsize -1;
-	/* code goes here */
-	while((buffer[rbuf_index] == ('Y' || 'X')) && (rbuf_index >= 0))
-	{
-		buffer[rbuf_index] = '\0';
-		unpadded++;
-		rbuf_index--;
-	}
 
+	for (int i = bufsize -1; i > 0; i--)
+	{
+		/* iterate through buffer until we find the beginning of the padding 'X' 
+		*	then return the index 1 before that location */
+		if (buffer[i] == 'X')
+		{
+			return i--;
+		}
+	}
+	//Should already have found its location in the upper loop
 	return unpadded;
 
 }
@@ -209,58 +217,39 @@ int main(int argc, char *argv[]) {
 	 ******************/
 	if (MODE == ENCODE)
 	{
-		i = 0;
-		while(symbol = fgetc(INPUT) != EOF)
-		{
-			if (((rbuf_index % bufsize) == 0) && i != 0)
-			{
-				/* read buffer is full, transpose and call dump buffer to write the block */
-				transpose_buffer(write_buf, read_buf, bufsize);
-				dump_buffer(read_buf, bufsize, bufsize, write_buf);
-			}
+		while((symbol = (int)fgetc(INPUT)) != EOF){
 			read_buf[rbuf_index % bufsize] = symbol;
 			rbuf_index++;
-			bytesleft--;
-			i++;
+
+			if ((rbuf_index % bufsize) == 0)
+			{
+				/* read buffer is full, need to transpose and dump buffer before next cycle */
+				transpose_buffer(write_buf, read_buf, dim);
+				dump_buffer(write_buf, bufsize, bufsize, output);
+			}
 		}
-		unsigned int padded = pad_buffer(read_buf, bufsize, (rbuf_index % bufsize));
-		transpose_buffer(write_buf, read_buf, bufsize);
-		dump_buffer(read_buf, bufsize, bufsize, write_buf);
+		/* EOF reached, pad buffer, transpose it and finally dump it */
+		pad_buffer(read_buf, bufsize, (rbuf_index % bufsize));
+		transpose_buffer(write_buf, read_buf, dim);
+		dump_buffer(write_buf, bufsize, bufsize, output);
 	}
-	else{//MODE == DECODE
-		unsigned int num_Blocks = bytesleft / bufsize;
-		i = 0;
-		while(num_Blocks > 1 && (symbol = fgetc(INPUT) != EOF))
-		{
-			if (((rbuf_index % bufsize) == 0) && i != 0)
-			{
-				/* read buffer is full, transpose and call dump buffer to write the block */
-				transpose_buffer(write_buf, read_buf, bufsize);
-				dump_buffer(read_buf, bufsize, bufsize, write_buf);
-				num_Blocks--;
-			}
+	else if(MODE == DECODE){
+		unsigned int blocks = (int) bytesleft / bufsize;
+		while((symbol = (int)fgetc(INPUT)) != EOF){
 			read_buf[rbuf_index % bufsize] = symbol;
 			rbuf_index++;
-			bytesleft--;
-			i++;
-		}
-		i = 0;
-		while(bytesleft > 0)
-		{
-			symbol = fgetc(INPUT);
-			/* read in last block of data before tranposing, unpadding and writing */
-			if (((rbuf_index % bufsize) == 0) && i != 0)
+			if ((rbuf_index % bufsize == 0) && ((rbuf_index / bufsize) < blocks))
 			{
-				/* last buffer is full,  transpose and unpad, then write out */
-				transpose_buffer(write_buf, read_buf, bufsize);
-				unsigned int unpadded = unpad_buffer(read_buf, bufsize);
-				dump_buffer(read_buf, bufsize, (bufsize - unpadded), write_buf);
+				transpose_buffer(write_buf, read_buf,dim);
+				dump_buffer(write_buf, bufsize, bufsize, output);
 			}
-			read_buf[rbuf_index % bufsize] = symbol;
-			rbuf_index++;
-			bytesleft--;
-			i++;
 		}
+		
+		/* Exited first while loop because we are out of input 
+		*  transpose the buffer, unpad it, and finally dump the buffer */
+		transpose_buffer(write_buf, read_buf, dim);
+		unsigned int unpadded = unpad_buffer(write_buf, bufsize);
+		dump_buffer(write_buf, bufsize, unpadded, output);
 	}
 
 	fclose(INPUT);
