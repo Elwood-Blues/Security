@@ -139,6 +139,8 @@ int unpad_buffer(char *buffer, unsigned int bufsize) {
 	return unpadded;
 
 }
+
+void vigenere_buffer(char *buffer, char *keybuf, unsigned int bytes, int mode);
 	
 int main(int argc, char *argv[]) {
 
@@ -154,9 +156,10 @@ int main(int argc, char *argv[]) {
 
 	/* give input and output nicer names */
 	unsigned int rounds = atoi(argv[1]); 	/* number of rounds to do */
-	char *key = argv[2];				/* key file path */
+	char *keyData = argv[2];				/* key file path */
 	char *input = argv[3]; 				/* input file path */
 	char *output = argv[4];				/* output file path */
+	unsigned int keyLegth = 0;			/* length of keyData */
 
 	/* use 'transmode' to determine if we are just padding or also
 	 * doing transposition. very helpful for debugging! */
@@ -168,12 +171,13 @@ int main(int argc, char *argv[]) {
 	}
 
 	unsigned int rbuf_count = 0;
+	const unsigned int dim = 4;
 	unsigned int bufsize = dim * dim;
 	char read_buf[bufsize]; /* buffer for reading and padding */
 	char write_buf[bufsize]; /* buffer for transposition */
 
-	FILE *KEY;
-	if ((KEY = fopen(key, "r")) == NULL)
+	FILE *KEYINPUT;
+	if ((KEYINPUT = fopen(key, "r")) == NULL)
 	{
 		printf("Problem opening key file '%s'; errno: %d\n", input, errno);
 		return 1;
@@ -210,6 +214,11 @@ int main(int argc, char *argv[]) {
 	}
 	fclose(OUTPUT);	/* file is reopened and reclosed for in dump_buffer() */
 
+	/*loop through the key file, read into a buffer until EOF or reached 16 bytes */
+	while((symbol = fgetc(KEYINPUT)) != EOF && (keyLegth < 16)){
+		keyData[keyLegth] = symbol;
+		keyLegth++;
+	}
 
 	/* loop through the input file, reading into a buffer and 
 	 * processing the buffer when 1) the buffer is full or
@@ -219,43 +228,66 @@ int main(int argc, char *argv[]) {
 
 	int rbuf_index = 0; /* index into the read buffer */
 	int symbol; /* we will read each input byte into 'symbol' */
-
 	/******************
 	 *  do stuff here *
 	 ******************/
+	
 	if (MODE == ENCODE)
 	{
 		while((symbol = (int)fgetc(INPUT)) != EOF){
-			read_buf[rbuf_index % bufsize] = symbol;
+			read_buf[rbuf_index] = symbol;
 			rbuf_index++;
 
-			if ((rbuf_index % bufsize) == 0)
+			if (rbuf_index == bufsize)
 			{
+				for (int i = 0; i < rounds; ++i)
+				{
+					vigenere_buffer(read_buf, keybuf, bufsize, MODE);
+					transpose_buffer(write_buf, read_buf, dim);
+				}
 				/* read buffer is full, need to transpose and dump buffer before next cycle */
-				transpose_buffer(write_buf, read_buf, dim);
+				// vigenere_buffer(read_buf, keybuf, bufsize, MODE);
+				// transpose_buffer(write_buf, read_buf, dim);
 				dump_buffer(write_buf, bufsize, bufsize, output);
+				read_buf = 0;
 			}
 		}
 		/* EOF reached, pad buffer, transpose it and finally dump it */
-		pad_buffer(read_buf, bufsize, (rbuf_index % bufsize));
-		transpose_buffer(write_buf, read_buf, dim);
+		pad_buffer(read_buf, bufsize, rbuf_index);
+		for (int i = 0; i < rounds; ++i)
+		{
+			vigenere_buffer(read_buf, keybuf, bufsize, MODE);
+			transpose_buffer(write_buf, read_buf, dim);
+		}
 		dump_buffer(write_buf, bufsize, bufsize, output);
 	}
 	else if(MODE == DECODE){
 		unsigned int blocks = (int) bytesleft / bufsize;
+		unsigned int blocks_written = 0;
 		while((symbol = (int)fgetc(INPUT)) != EOF){
-			read_buf[rbuf_index % bufsize] = symbol;
+			read_buf[rbuf_index] = symbol;
 			rbuf_index++;
-			if ((rbuf_index % bufsize == 0) && ((rbuf_index / bufsize) < blocks))
+			if ((rbuf_index == 0) && (blocks_written < blocks))
 			{
-				transpose_buffer(write_buf, read_buf,dim);
+				for (int i = 0; i < rounds; ++i)
+				{
+					transpose_buffer(write_buf, read_buf, dim);
+					vigenere_buffer(write_buf, keybuf, bufsize, MODE);
+				}
 				dump_buffer(write_buf, bufsize, bufsize, output);
+				blocks_written++;
+				rbuf_index = 0;
 			}
 		}
 		
 		/* Exited first while loop because we are out of input 
 		*  transpose the buffer, unpad it, and finally dump the buffer */
-		transpose_buffer(write_buf, read_buf, dim);
+		for (int i = 0; i < rounds; ++i)
+		{
+			transpose_buffer(write_buf, read_buf, dim);
+			vigenere_buffer(write_buf, keybuf, bufsize, MODE);
+		}
+		
 		unsigned int unpadded = unpad_buffer(write_buf, bufsize);
 		dump_buffer(write_buf, bufsize, unpadded, output);
 	}
@@ -266,4 +298,37 @@ int main(int argc, char *argv[]) {
 
 }
 
+void vigenere_buffer(char *buffer, char *keybuf, unsigned int bytes, int mode){
+
+	if (MODE == DECODE) {
+		/*****CAESER SHIFT DECODE SECTION*****/
+			/* mode is DECODE, so "unshift" the characters */
+			/* shift = 256 - shift; */
+		/*****END CAESER SHIFT SECTION**/
+
+		/****VIGENERE DECODE SECTON****/
+		/*  1. take the int value of the input 'symbol'
+		*  2. subtract the int value of the 'key' from the 'symbol'
+		*  3. then perform modulo arithmetic using 256 to wrap numbers back around if necessary
+		*  4. cast the new value to char and store
+		*/
+
+		for (int i = 0; i < bytes; ++i)
+		{
+			buffer[i] = (char)((buffer[i] - keybuf[i]) % 256);
+		}
+
+	}
+	else if (MODE == ENCODE){
+		/***************************
+		 * OK, LET'S GET ENCODING! *
+		 ***************************/
+
+		for (int i = 0; i < bytes; ++i)
+		{
+			buffer[i] = (char)((buffer[i] + keybuf[i]) % 256);
+		}
+	}
+
+}
 
