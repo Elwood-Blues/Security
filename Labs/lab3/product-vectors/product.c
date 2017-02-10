@@ -140,7 +140,7 @@ int unpad_buffer(char *buffer, unsigned int bufsize) {
 
 }
 
-void vigenere_buffer(char *buffer, char *keyData, unsigned int bytes, int mode);
+void vigenere_buffer(char *buffer, char *keyData, unsigned int keyLegth, unsigned int bytes, int mode);
 	
 int main(int argc, char *argv[]) {
 
@@ -170,11 +170,14 @@ int main(int argc, char *argv[]) {
 		transmode = NOTRANS;
 	}
 
-	unsigned int rbuf_count = 0;
+	// unsigned int rbuf_count = 0;
 	const unsigned int dim = 4;
 	unsigned int bufsize = dim * dim;
 	char read_buf[bufsize]; /* buffer for reading and padding */
 	char write_buf[bufsize]; /* buffer for transposition */
+	memset(read_buf, 0, bufsize);
+	memset(write_buf, 0, bufsize);
+	// memset(keyData, 0, bufsize);
 
 	FILE *KEYINPUT;
 	if ((KEYINPUT = fopen(keyData, "r")) == NULL)
@@ -219,7 +222,7 @@ int main(int argc, char *argv[]) {
 
 	/* ******KEY FILE INPUT ****** */
 	/*loop through the key file, read into a buffer until EOF or reached 16 bytes */
-	while((symbol = fgetc(KEYINPUT)) != EOF && (keyLegth < 16)){
+	while((symbol = (int)fgetc(KEYINPUT)) != EOF){
 		keyData[keyLegth] = symbol;
 		keyLegth++;
 	}
@@ -246,12 +249,10 @@ int main(int argc, char *argv[]) {
 			{
 				for (int i = 0; i < rounds; ++i)
 				{
-					vigenere_buffer(read_buf, keyData, bufsize, MODE);
+					vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
 					transpose_buffer(write_buf, read_buf, dim);
 				}
 				/* read buffer is full, need to transpose and dump buffer before next cycle */
-				// vigenere_buffer(read_buf, keyData, bufsize, MODE);
-				// transpose_buffer(write_buf, read_buf, dim);
 				dump_buffer(write_buf, bufsize, bufsize, output);
 				// rbuf_index = 0;
 			}
@@ -260,27 +261,27 @@ int main(int argc, char *argv[]) {
 		pad_buffer(read_buf, bufsize, (rbuf_index % bufsize));
 		for (int i = 0; i < rounds; ++i)
 		{
-			vigenere_buffer(read_buf, keyData, bufsize, MODE);
+			vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
 			transpose_buffer(write_buf, read_buf, dim);
 		}
 		dump_buffer(write_buf, bufsize, bufsize, output);
 	}
 	else if(MODE == DECODE){
-		// unsigned int blocks = (int) bytesleft / bufsize;
-		// unsigned int blocks_written = 0;
 		rbuf_index = 0;
+		unsigned int blocks = (int) bytesleft / bufsize;
+		unsigned int written_blocks = 0;
 		while((symbol = (int)fgetc(INPUT)) != EOF){
 			read_buf[rbuf_index % bufsize] = symbol;
 			rbuf_index++;
-			if (rbuf_index % bufsize == 0)
+			if ((rbuf_index % bufsize == 0) && ((rbuf_index / bufsize) < blocks))
 			{
 				for (int i = 0; i < rounds; ++i)
 				{
 					transpose_buffer(write_buf, read_buf, dim);
-					vigenere_buffer(write_buf, keyData, bufsize, MODE);
+					vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
 				}
 				dump_buffer(write_buf, bufsize, bufsize, output);
-				// blocks_written++;
+				written_blocks++;
 				// rbuf_index = 0;
 			}
 		}
@@ -290,12 +291,11 @@ int main(int argc, char *argv[]) {
 		for (int i = 0; i < rounds; ++i)
 		{
 			transpose_buffer(write_buf, read_buf, dim);
-
-			vigenere_buffer(write_buf, keyData, bufsize, MODE);
+			vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
 		}
 		
 		unsigned int unpadded = unpad_buffer(write_buf, bufsize);
-		dump_buffer(write_buf, bufsize, unpadded, output);
+		dump_buffer(write_buf, bufsize, (unpadded % bufsize), output);
 	}
 
 	fclose(INPUT);
@@ -303,7 +303,7 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
-void vigenere_buffer(char *buffer, char *keyData, unsigned int bytes, int mode){
+void vigenere_buffer(char *buffer, char *keyData, unsigned int keyLegth, unsigned int bytes, int mode){
 
 	if (MODE == DECODE) {
 		/*****CAESER SHIFT DECODE SECTION*****/
@@ -320,7 +320,7 @@ void vigenere_buffer(char *buffer, char *keyData, unsigned int bytes, int mode){
 
 		for (int i = 0; i < bytes; ++i)
 		{
-			buffer[i] = (char)((buffer[i] - keyData[i]) % 256);
+			buffer[i] = (int)((buffer[i] - keyData[i % keyLegth]) % 256);
 		}
 
 	}
@@ -331,7 +331,7 @@ void vigenere_buffer(char *buffer, char *keyData, unsigned int bytes, int mode){
 
 		for (int i = 0; i < bytes; ++i)
 		{
-			buffer[i] = (char)((buffer[i] + keyData[i]) % 256);
+			buffer[i] = (int)((buffer[i] + keyData[i % keyLegth]) % 256);
 		}
 	}
 
