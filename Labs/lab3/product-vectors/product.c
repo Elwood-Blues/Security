@@ -36,26 +36,6 @@ int print_buffer(char *buf, unsigned int bytes) {
 
 }
 
-int transpose_buffer(char *out, char *in, unsigned int dim) {
-	/* do a columnar encipher/decipher
-	 * from in to out
-	 * using box of size dim*dim
-	 * since it's a square, enciphering and deciphering is the same
-	 */
-
-	/* your elegant code goes here */
-	unsigned int size = dim * dim;
-	unsigned int position = 0;
-	for (int i = 0; i < size; ++i)
-	{
-		position = (i % dim) * dim + (i / dim);
-		out[position] = in[i];
-	}
-
-	return 0;
-
-}
-
 int dump_buffer(char *buffer, unsigned int bufsize, 
 				unsigned int bytes, char *output) {
 
@@ -102,6 +82,15 @@ int pad_buffer(char *buffer, unsigned int bufsize, unsigned int rbuf_index) {
 	int padded = 0;
 
 	/* code goes here */
+	/* special case where rbuf_index is currently at last position of array, need to dump contents before padding
+		otherwise we can't accomodate 'XY' --i.e. the minimum amount of padding required to signal the 
+		end of the plaintext */
+	// if( (rbuf_index % bufsize) == (bufsize - 1)){
+	// 		buffer[rbuf_index] = 'X';
+	// 		rbuf_index++;
+	// 		padded++
+
+	// 	}
 	buffer[rbuf_index] = 'X';
 	rbuf_index++;
 	padded++;
@@ -132,16 +121,41 @@ int unpad_buffer(char *buffer, unsigned int bufsize) {
 		*	then return the index 1 before that location */
 		if (buffer[i] == 'X')
 		{
-			return i--;
+			return --i;
 		}
+		unpadded++;
 	}
 	//Should already have found its location in the upper loop
 	return unpadded;
 
 }
 
+int transpose_buffer(char *out, char *in, unsigned int dim) {
+	/* do a columnar encipher/decipher
+	 * from in to out
+	 * using box of size dim*dim
+	 * since it's a square, enciphering and deciphering is the same
+	 */
+
+	/* your elegant code goes here */
+	unsigned int size = dim * dim;
+	unsigned int position = 0;
+	for (int i = 0; i < size; ++i)
+	{
+		position = (i % dim) * dim + (i / dim);
+		out[position] = in[i];
+	}
+
+	return 0;
+
+}
 void vigenere_buffer(char *buffer, char *keyData, unsigned int keyLegth, unsigned int bytes, int mode);
-	
+
+void product_buffer(char *outBuf, char *inBuf, unsigned int dim, char *keyData, 
+					unsigned int keyLegth, unsigned int vig_bytes, int mode, unsigned int rounds);
+
+void correct_buffers(char *inBuf, char *outBuf, unsigned int bufsize);
+
 int main(int argc, char *argv[]) {
 
 	int i = 0; /* iterator we'll reuse */
@@ -247,23 +261,28 @@ int main(int argc, char *argv[]) {
 
 			if (rbuf_index % bufsize == 0)
 			{
-				for (int i = 0; i < rounds; ++i)
-				{
-					vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
-					transpose_buffer(write_buf, read_buf, dim);
-				}
-				/* read buffer is full, need to transpose and dump buffer before next cycle */
+				/* This Section executes only when our read buffer is 'full' */
+				product_buffer(write_buf, read_buf, dim, keyData, keyLegth, bufsize, MODE, rounds);
+
+				/* after performing shifts dump buffer before next cycle */
 				dump_buffer(write_buf, bufsize, bufsize, output);
 				// rbuf_index = 0;
 			}
 		}
 		/* EOF reached, pad buffer, transpose it and finally dump it */
+		// if ( (rbuf_index % bufsize) == (bufsize - 1) )
+		// {
+		// 	/* code */
+		// }
 		pad_buffer(read_buf, bufsize, (rbuf_index % bufsize));
-		for (int i = 0; i < rounds; ++i)
-		{
-			vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
-			transpose_buffer(write_buf, read_buf, dim);
-		}
+
+		product_buffer(write_buf, read_buf, dim, keyData, keyLegth, bufsize, MODE, rounds);
+		// for (int i = 0; i < rounds; ++i)
+		// {
+		// 	vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
+		// 	transpose_buffer(write_buf, read_buf, dim);
+		// }
+		// void product_buffer(outBuf, inBuf, dim, keyData, keyLegth, vig_bytes, mode, rounds);
 		dump_buffer(write_buf, bufsize, bufsize, output);
 	}
 	else if(MODE == DECODE){
@@ -275,11 +294,13 @@ int main(int argc, char *argv[]) {
 			rbuf_index++;
 			if ((rbuf_index % bufsize == 0) && ((rbuf_index / bufsize) < blocks))
 			{
-				for (int i = 0; i < rounds; ++i)
-				{
-					transpose_buffer(write_buf, read_buf, dim);
-					vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
-				}
+				// EXPECTED VALUES: product_buffer(outBuf, inBuf, dim, keyData, keyLegth, vig_bytes, mode, rounds);
+				product_buffer(write_buf, read_buf, dim, keyData, keyLegth, bufsize, MODE, rounds);
+				// for (int i = 0; i < rounds; ++i)
+				// {
+				// 	transpose_buffer(write_buf, read_buf, dim);
+				// 	vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
+				// }
 				dump_buffer(write_buf, bufsize, bufsize, output);
 				written_blocks++;
 				// rbuf_index = 0;
@@ -288,19 +309,21 @@ int main(int argc, char *argv[]) {
 		
 		/* Exited first while loop because we are out of input 
 		*  transpose the buffer, unpad it, and finally dump the buffer */
-		for (int i = 0; i < rounds; ++i)
-		{
-			transpose_buffer(write_buf, read_buf, dim);
-			vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
-		}
-		
+		product_buffer(write_buf, read_buf, dim, keyData, keyLegth, bufsize, MODE, rounds);
+		// for (int i = 0; i < rounds; ++i)
+		// {
+		// 	//decode style
+		// 	transpose_buffer(write_buf, read_buf, dim);
+		// 	vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
+		// }
+
 		unsigned int unpadded = unpad_buffer(write_buf, bufsize);
 		dump_buffer(write_buf, bufsize, (unpadded % bufsize), output);
 	}
 
 	fclose(INPUT);
 
-	return 0;
+	return 0;/* END MAIN */
 }
 
 void vigenere_buffer(char *buffer, char *keyData, unsigned int keyLegth, unsigned int bytes, int mode){
@@ -337,3 +360,80 @@ void vigenere_buffer(char *buffer, char *keyData, unsigned int keyLegth, unsigne
 
 }
 
+void correct_buffers(char *inBuf, char *outBuf, unsigned int bufsize){
+	/* Function used to correct the contents of product_buffer() function in the event that the number of rounds were odd 
+		which would cause the final rounds output to have been written to the inBuf.  This function copies the contents of inBuf to 
+		outBuf so that the functions back in Main() that occur after product_buffer() have the proper contents i.e. the outBuf */
+	for (int i = 0; i < bufsize; ++i)
+	{
+		outBuf[i] = inBuf[i];
+	}
+}
+
+void product_buffer(char *outBuf, char *inBuf, unsigned int dim, char *keyData, 
+					unsigned int keyLegth, unsigned int vig_bytes, int mode, unsigned int rounds){
+	bool lastOdd; // used to indicate whether our last round wrote to the input buffer, if so inbuf contents need to be copied to outBuf
+	if (mode == ENCODE)
+	{
+		for (int i = 0; i < rounds; ++i)
+		{
+			/* ENCODE section performs the vigenere shift, followed by the transposition, 
+				for the number of rounds specified during the function call */
+			if ( (i % 2) == 0)
+			{
+				vigenere_buffer(inBuf, keyData, keyLegth, vig_bytes, mode);
+				transpose_buffer(outBuf, inBuf, dim);
+				lastOdd = false;
+			}
+			else// i % 2 == 1
+			{
+				vigenere_buffer(outBuf, keyData, keyLegth, vig_bytes, mode);
+				transpose_buffer(inBuf, outBuf, dim);
+				lastOdd = true;
+			}
+			
+		}
+		if (lastOdd) //ended on an odd # of rounds, correct the buffer contents before leaving product_buffer()
+		{
+			correct_buffers(inBuf, outBuf, vig_bytes);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < rounds; ++i)
+		{
+			/* DECODE section performs the transposition, followed by vigenere UNSHIFT,
+				for the number of rounds specified during the function call */
+			if ( (i % 2) == 0)
+			{
+				transpose_buffer(outBuf, inBuf, dim);
+				vigenere_buffer(outBuf, keyData, keyLegth, vig_bytes, mode);
+				lastOdd = false;
+			}
+			else // i % 2 == 1
+			{
+				transpose_buffer(inBuf, outBuf, dim);
+				vigenere_buffer(inBuf, keyData, keyLegth, vig_bytes, mode);
+				lastOdd = true;
+			}
+		}
+		if (lastOdd)
+		{
+			correct_buffers(inBuf, outBuf, vig_bytes);
+		}
+	}
+}
+/*  BELOW ARE FUNCTION REFERENCES ONLY  */
+// void product_buffer(trans_outBuf, trans_inBuf, dim, vig_buffer, keyData, keyLegth, vig_bytes, mode, rounds);
+		/*for (int i = 0; i < rounds; ++i)
+		{
+			//decode style
+			transpose_buffer(write_buf, read_buf, dim);
+			vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
+		}*/
+		/*for (int i = 0; i < rounds; ++i)
+		{
+			//encode style
+			vigenere_buffer(read_buf, keyData,keyLegth, bufsize, MODE);
+			transpose_buffer(write_buf, read_buf, dim);
+		}*/
