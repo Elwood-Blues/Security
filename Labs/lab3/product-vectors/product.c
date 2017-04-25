@@ -372,6 +372,7 @@ void correct_buffers(char *inBuf, char *outBuf, unsigned int bufsize){
 
 void product_buffer(char *outBuf, char *inBuf, unsigned int dim, char *keyData, 
 					unsigned int keyLegth, unsigned int vig_bytes, int mode, unsigned int rounds){
+	typedef enum { false, true } bool;
 	bool lastOdd; // used to indicate whether our last round wrote to the input buffer, if so inbuf contents need to be copied to outBuf
 	if (mode == ENCODE)
 	{
