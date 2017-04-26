@@ -54,10 +54,18 @@ int dump_buffer(char *buffer, unsigned int bufsize,
 		return 1;
 	}
 	/* print 'bytes' bytes from buffer to output file one char at a time */
-	for (int i = 0; i < bytes; ++i)
+	if (bytes == 0)
 	{
-		fprintf(OUTPUT, "%c", buffer[i]);
+		fprintf(OUTPUT, "%c", buffer[0]);
 	}
+	else
+	{
+		for (int i = 0; i < bytes; ++i)
+		{
+			fprintf(OUTPUT, "%c", buffer[i]);
+		}
+	}
+
 	/* optional: wipe buffer using memset */
 	memset(buffer, 0, bufsize);
 	/* close output file */
@@ -287,12 +295,12 @@ int main(int argc, char *argv[]) {
 	}
 	else if(MODE == DECODE){
 		rbuf_index = 0;
-		unsigned int blocks = (int) bytesleft / bufsize;
+		unsigned int blocks = (int) (bytesleft / bufsize) - 1;
 		unsigned int written_blocks = 0;
 		while((symbol = (int)fgetc(INPUT)) != EOF){
 			read_buf[rbuf_index % bufsize] = symbol;
 			rbuf_index++;
-			if ((rbuf_index % bufsize == 0) && ((rbuf_index / bufsize) < blocks))
+			if ((rbuf_index % bufsize == 0) && (written_blocks < blocks))
 			{
 				// EXPECTED VALUES: product_buffer(outBuf, inBuf, dim, keyData, keyLegth, vig_bytes, mode, rounds);
 				product_buffer(write_buf, read_buf, dim, keyData, keyLegth, bufsize, MODE, rounds);
