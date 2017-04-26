@@ -54,17 +54,17 @@ int dump_buffer(char *buffer, unsigned int bufsize,
 		return 1;
 	}
 	/* print 'bytes' bytes from buffer to output file one char at a time */
-	if (bytes == 0)
-	{
-		fprintf(OUTPUT, "%c", buffer[0]);
-	}
-	else
-	{
+	// if (bytes == 0)
+	// {
+	// 	fprintf(OUTPUT, "%c", buffer[0]);
+	// }
+	// else
+	// {
 		for (int i = 0; i < bytes; ++i)
 		{
 			fprintf(OUTPUT, "%c", buffer[i]);
 		}
-	}
+	// }
 
 	/* optional: wipe buffer using memset */
 	memset(buffer, 0, bufsize);
@@ -123,13 +123,13 @@ int unpad_buffer(char *buffer, unsigned int bufsize) {
 
 	int unpadded = 0;
 
-	for (int i = bufsize -1; i > 0; i--)
+	for (int i = bufsize -1; i >= 0; i--)
 	{
 		/* iterate through buffer until we find the beginning of the padding 'X' 
 		*	then return the index 1 before that location */
 		if (buffer[i] == 'X')
 		{
-			return --i;
+			return i;
 		}
 		unpadded++;
 	}
